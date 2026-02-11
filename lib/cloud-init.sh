@@ -123,12 +123,12 @@ runcmd:
       echo "GitHub CLI installed and authenticated" >> /var/log/openclaw-deploy.log
     fi
 
-  # Clone OpenClaw
-  - su - openclaw -c "cd /opt/openclaw && git clone https://github.com/snarktank/openclaw.git app"
-  - su - openclaw -c "cd /opt/openclaw/app && npm ci && npm run build"
+  # Clone OpenClaw (private repo — needs GitHub token)
+  - su - openclaw -c "cd /opt/openclaw && git clone https://${GITHUB_TOKEN}@github.com/snarktank/openclaw.git app"
+  - su - openclaw -c "cd /opt/openclaw/app && npm install && npm run build"
 
-  # Clone dcf-vault context
-  - su - openclaw -c "cd /opt/openclaw/knowledge && git clone https://github.com/symbiorgco/dcf-setup.git dcf-vault"
+  # Clone dcf-vault context (private repo)
+  - su - openclaw -c "cd /opt/openclaw/knowledge && git clone https://${GITHUB_TOKEN}@github.com/symbiorgco/dcf-setup.git dcf-vault"
 
   # Install Antfarm (clone, build, link, install)
   - su - openclaw -c "cd /opt/openclaw && git clone https://github.com/snarktank/antfarm.git antfarm"
@@ -173,7 +173,8 @@ runcmd:
     done
 
   # Install compound-engineering skill via ClawHub
-  - su - openclaw -c "cd /opt/openclaw/app && npm install -g clawhub && clawhub install compound-engineering || echo 'ClawHub install skipped (not yet available)'"
+  - npm install -g clawhub || true
+  - su - openclaw -c "cd /opt/openclaw/app && clawhub install compound-engineering || echo 'ClawHub install skipped (not yet available)'"
 
   # Compound Review — 22:30 nightly (extract learnings, update CLAUDE.md)
   - |
