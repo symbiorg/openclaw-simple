@@ -13,7 +13,7 @@ hetzner_create_server() {
     -H "Content-Type: application/json" \
     -d "{
       \"name\": \"$name\",
-      \"server_type\": \"cx22\",
+      \"server_type\": \"cx23\",
       \"location\": \"nbg1\",
       \"image\": \"ubuntu-24.04\",
       \"user_data\": $(echo "$user_data" | jq -Rs .)
