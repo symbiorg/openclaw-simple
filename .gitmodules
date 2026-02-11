@@ -1,0 +1,6 @@
+[submodule "context/dcf-vault"]
+	path = context/dcf-vault
+	url = https://github.com/symbiorgco/dcf-setup.git
+[submodule "context/antfarm"]
+	path = context/antfarm
+	url = https://github.com/snarktank/antfarm.git
