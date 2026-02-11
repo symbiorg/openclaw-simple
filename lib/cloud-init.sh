@@ -83,9 +83,10 @@ runcmd:
   - curl -fsSL https://tailscale.com/install.sh | sh
   - tailscale up --authkey=${TAILSCALE_KEY} --ssh --hostname=${INSTANCE_NAME}
 
-  # Firewall: Tailscale only
+  # Firewall: Tailscale + SSH (SSH needed for deploy script health checks)
   - ufw default deny incoming
   - ufw default allow outgoing
+  - ufw allow 22/tcp
   - ufw allow in on tailscale0
   - ufw --force enable
 
