@@ -156,7 +156,9 @@ runcmd:
     chown openclaw:openclaw /opt/openclaw/.openclaw/.env
     chmod 600 /opt/openclaw/.openclaw/.env
 
-  # Configure Slack (open policy — respond in any channel/DM)
+  # Configure Slack (enable + open policy — respond in any channel/DM)
+  - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.enabled true" || true
+  - su - openclaw -c "cd /opt/openclaw && openclaw config set plugins.entries.slack.enabled true" || true
   - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.groupPolicy open" || true
   - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.dm.allowFrom '[\"*\"]'" || true
   - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.dm.policy open" || true
