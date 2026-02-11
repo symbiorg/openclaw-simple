@@ -100,7 +100,7 @@ hetzner_wait_ready "$SERVER_IP"
 # Get Tailscale IP
 log "Getting Tailscale IP..."
 sleep 10
-TAILSCALE_IP=$(ssh -o StrictHostKeyChecking=no "root@$SERVER_IP" \
+TAILSCALE_IP=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/hetzner "root@$SERVER_IP" \
   "tailscale ip -4" 2>/dev/null | tr -d '\r\n' || echo "pending")
 
 # Summary

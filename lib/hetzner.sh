@@ -59,7 +59,7 @@ hetzner_wait_ready() {
 
   log "Waiting for SSH to be available..."
   for i in {1..60}; do
-    if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes \
+    if ssh -o StrictHostKeyChecking=no -i ~/.ssh/hetzner -o ConnectTimeout=5 -o BatchMode=yes \
        "root@$ip" "echo ready" &>/dev/null; then
       success "SSH ready"
       break
@@ -69,7 +69,7 @@ hetzner_wait_ready() {
 
   log "Waiting for cloud-init to complete..."
   for i in {1..120}; do
-    if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+    if ssh -o StrictHostKeyChecking=no -i ~/.ssh/hetzner -o ConnectTimeout=10 \
        "root@$ip" "cloud-init status --wait" 2>/dev/null; then
       success "Server ready"
       return 0
