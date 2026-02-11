@@ -37,6 +37,37 @@ write_files:
       ${AWS_SECRET_ACCESS_KEY:+aws_secret_access_key = ${AWS_SECRET_ACCESS_KEY}}
       ${AWS_DEFAULT_REGION:+region = ${AWS_DEFAULT_REGION}}
 
+  - path: /etc/systemd/system/openclaw.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=OpenClaw AI Agent Platform
+      After=network-online.target tailscaled.service
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      User=openclaw
+      Group=openclaw
+      WorkingDirectory=/opt/openclaw
+      Environment="NODE_ENV=production"
+      Environment="HOME=/opt/openclaw"
+      Environment="OPENCLAW_HOME=/opt/openclaw"
+      EnvironmentFile=/opt/openclaw/.openclaw/.env
+      ExecStart=/usr/bin/openclaw gateway --port 18789 --allow-unconfigured
+      Restart=always
+      RestartSec=10
+      StandardOutput=journal
+      StandardError=journal
+
+      NoNewPrivileges=true
+      PrivateTmp=true
+      MemoryMax=4G
+      CPUQuota=200%
+
+      [Install]
+      WantedBy=multi-user.target
+
 runcmd:
   - export DEBIAN_FRONTEND=noninteractive
 
@@ -109,8 +140,12 @@ runcmd:
 
   # Write env tokens that onboard doesn't handle
   - |
-    cat >> /opt/openclaw/.openclaw/.env <<ENVEOF
+    mkdir -p /opt/openclaw/.openclaw
+    cat > /opt/openclaw/.openclaw/.env <<ENVEOF
+    ANTHROPIC_API_KEY=${ANTHROPIC_KEY}
     OPENCLAW_DISABLE_BONJOUR=1
+    OPENCLAW_BIND_HOST=127.0.0.1
+    OPENCLAW_GATEWAY_TOKEN=local
     ${SLACK_APP_TOKEN:+SLACK_APP_TOKEN=${SLACK_APP_TOKEN}}
     ${SLACK_BOT_TOKEN:+SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}}
     ${GITHUB_TOKEN:+GITHUB_TOKEN=${GITHUB_TOKEN}}
@@ -122,12 +157,10 @@ runcmd:
     chmod 600 /opt/openclaw/.openclaw/.env
 
   # Configure Slack (open policy — respond in any channel/DM)
-  - |
-    su - openclaw -c "cd /opt/openclaw && \
-      openclaw config set channels.slack.groupPolicy open && \
-      openclaw config set channels.slack.dm.policy open && \
-      openclaw config set channels.slack.dm.allowFrom '[\"*\"]' && \
-      openclaw config set messages.ackReactionScope all"
+  - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.groupPolicy open" || true
+  - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.dm.allowFrom '[\"*\"]'" || true
+  - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.dm.policy open" || true
+  - su - openclaw -c "cd /opt/openclaw && openclaw config set messages.ackReactionScope all" || true
 
   # Start/restart service (onboard --install-daemon may have created it)
   - systemctl daemon-reload
