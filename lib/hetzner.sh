@@ -8,6 +8,10 @@ hetzner_create_server() {
 
   log "Creating Hetzner server: $name"
 
+  # Fetch all project SSH keys
+  local ssh_keys=$(curl -s "$HETZNER_API/ssh_keys" \
+    -H "Authorization: Bearer $HETZNER_TOKEN" | jq '[.ssh_keys[].id]')
+
   local response=$(curl -s -X POST "$HETZNER_API/servers" \
     -H "Authorization: Bearer $HETZNER_TOKEN" \
     -H "Content-Type: application/json" \
@@ -16,6 +20,7 @@ hetzner_create_server() {
       \"server_type\": \"cx23\",
       \"location\": \"nbg1\",
       \"image\": \"ubuntu-24.04\",
+      \"ssh_keys\": $ssh_keys,
       \"user_data\": $(echo "$user_data" | jq -Rs .)
     }")
 
