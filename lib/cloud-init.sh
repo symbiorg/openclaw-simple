@@ -7,6 +7,12 @@ generate_cloud_init() {
 package_update: true
 package_upgrade: true
 
+apt:
+  conf: |
+    APT::Get::Assume-Yes "true";
+    DPkg::Options:: "--force-confold";
+    Dpkg::Options:: "--force-confdef";
+
 packages:
   - curl
   - git
@@ -15,15 +21,10 @@ packages:
   - fail2ban
   - sqlite3
 
-users:
-  - name: openclaw
-    system: true
-    shell: /bin/bash
-    home: /opt/openclaw
-
 bootcmd:
-  - mkdir -p /opt/openclaw/{app,knowledge,workspace,config,logs,antfarm,antfarm-data/workflows,scripts}
-  - mkdir -p /opt/openclaw/workspace/compound/{slack,github,logs,reports,prds,implementation,learnings}
+  - useradd -r -m -d /opt/openclaw -s /bin/bash openclaw || true
+  - mkdir -p /opt/openclaw/app /opt/openclaw/knowledge /opt/openclaw/workspace /opt/openclaw/config /opt/openclaw/logs /opt/openclaw/antfarm /opt/openclaw/antfarm-data/workflows /opt/openclaw/scripts
+  - mkdir -p /opt/openclaw/workspace/compound/slack /opt/openclaw/workspace/compound/github /opt/openclaw/workspace/compound/logs /opt/openclaw/workspace/compound/reports /opt/openclaw/workspace/compound/prds /opt/openclaw/workspace/compound/implementation /opt/openclaw/workspace/compound/learnings
   - chown -R openclaw:openclaw /opt/openclaw
 
 write_files:
@@ -79,6 +80,8 @@ write_files:
       WantedBy=multi-user.target
 
 runcmd:
+  - export DEBIAN_FRONTEND=noninteractive
+
   # Install Tailscale
   - curl -fsSL https://tailscale.com/install.sh | sh
   - tailscale up --authkey=${TAILSCALE_KEY} --ssh --hostname=${INSTANCE_NAME}
@@ -90,9 +93,11 @@ runcmd:
   - ufw allow in on tailscale0
   - ufw --force enable
 
-  # Install Node.js 22
-  - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-  - apt-get install -y nodejs
+  # Install Node.js 22 (remove system nodejs first, use NodeSource)
+  - apt-get remove -y nodejs libnode-dev libnode109 || true
+  - |
+    DEBIAN_FRONTEND=noninteractive curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
 
   # Install AWS CLI (if credentials provided)
   - |
