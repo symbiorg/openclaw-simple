@@ -23,26 +23,11 @@ packages:
 
 bootcmd:
   - useradd -r -m -d /opt/openclaw -s /bin/bash openclaw || true
-  - mkdir -p /opt/openclaw/app /opt/openclaw/knowledge /opt/openclaw/workspace /opt/openclaw/config /opt/openclaw/logs /opt/openclaw/antfarm /opt/openclaw/antfarm-data/workflows /opt/openclaw/scripts
+  - mkdir -p /opt/openclaw/app /opt/openclaw/knowledge /opt/openclaw/workspace /opt/openclaw/config /opt/openclaw/logs /opt/openclaw/scripts
   - mkdir -p /opt/openclaw/workspace/compound/slack /opt/openclaw/workspace/compound/github /opt/openclaw/workspace/compound/logs /opt/openclaw/workspace/compound/reports /opt/openclaw/workspace/compound/prds /opt/openclaw/workspace/compound/implementation /opt/openclaw/workspace/compound/learnings
   - chown -R openclaw:openclaw /opt/openclaw
 
 write_files:
-  - path: /opt/openclaw/config/.env
-    permissions: '0600'
-    owner: openclaw:openclaw
-    content: |
-      NODE_ENV=production
-      ANTHROPIC_API_KEY=${ANTHROPIC_KEY}
-      OPENCLAW_DISABLE_BONJOUR=1
-      ${SLACK_APP_TOKEN:+SLACK_APP_TOKEN=${SLACK_APP_TOKEN}}
-      ${SLACK_BOT_TOKEN:+SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}}
-      ${AWS_ACCESS_KEY_ID:+AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}}
-      ${AWS_SECRET_ACCESS_KEY:+AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}}
-      ${AWS_DEFAULT_REGION:+AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}}
-      ${GITHUB_TOKEN:+GITHUB_TOKEN=${GITHUB_TOKEN}}
-      ${OPENAI_API_KEY:+OPENAI_API_KEY=${OPENAI_API_KEY}}
-
   - path: /opt/openclaw/.aws-credentials
     permissions: '0600'
     owner: openclaw:openclaw
@@ -51,33 +36,6 @@ write_files:
       ${AWS_ACCESS_KEY_ID:+aws_access_key_id = ${AWS_ACCESS_KEY_ID}}
       ${AWS_SECRET_ACCESS_KEY:+aws_secret_access_key = ${AWS_SECRET_ACCESS_KEY}}
       ${AWS_DEFAULT_REGION:+region = ${AWS_DEFAULT_REGION}}
-
-  - path: /etc/systemd/system/openclaw.service
-    permissions: '0644'
-    content: |
-      [Unit]
-      Description=OpenClaw Agent with Antfarm
-      After=network-online.target tailscaled.service
-
-      [Service]
-      Type=simple
-      User=openclaw
-      WorkingDirectory=/opt/openclaw/app
-      EnvironmentFile=/opt/openclaw/config/.env
-      Environment="OPENCLAW_CONFIG=/opt/openclaw/config/config.json"
-      Environment="OPENCLAW_WORKSPACE=/opt/openclaw/workspace"
-      Environment="HOME=/opt/openclaw"
-      ExecStart=/usr/bin/node dist/index.js
-      Restart=always
-      RestartSec=10
-
-      NoNewPrivileges=true
-      PrivateTmp=true
-      MemoryMax=4G
-      CPUQuota=200%
-
-      [Install]
-      WantedBy=multi-user.target
 
 runcmd:
   - export DEBIAN_FRONTEND=noninteractive
@@ -98,6 +56,9 @@ runcmd:
   - |
     DEBIAN_FRONTEND=noninteractive curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
   - DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+
+  # Install OpenClaw globally (npm package)
+  - npm install -g openclaw
 
   # Install AWS CLI (if credentials provided)
   - |
@@ -123,21 +84,19 @@ runcmd:
       echo "GitHub CLI installed and authenticated" >> /var/log/openclaw-deploy.log
     fi
 
-  # Clone OpenClaw (private repo — needs GitHub token)
-  - su - openclaw -c "cd /opt/openclaw && git clone https://${GITHUB_TOKEN}@github.com/snarktank/openclaw.git app"
-  - su - openclaw -c "cd /opt/openclaw/app && npm install && npm run build"
-
   # Clone dcf-vault context (private repo)
-  - su - openclaw -c "cd /opt/openclaw/knowledge && git clone https://${GITHUB_TOKEN}@github.com/symbiorgco/dcf-setup.git dcf-vault"
-
-  # Install Antfarm (clone, build, link, install)
-  - su - openclaw -c "cd /opt/openclaw && git clone https://github.com/snarktank/antfarm.git antfarm"
-  - su - openclaw -c "cd /opt/openclaw/antfarm && npm install && npm run build && npm link"
-  - su - openclaw -c "cd /opt/openclaw/app && antfarm install"
-
-  # Run openclaw onboard (native setup)
   - |
-    su - openclaw -c "cd /opt/openclaw/app && \
+    if [ -n "${GITHUB_TOKEN}" ]; then
+      su - openclaw -c "cd /opt/openclaw/knowledge && git clone https://${GITHUB_TOKEN}@github.com/symbiorgco/dcf-setup.git dcf-vault"
+    fi
+
+  # Install Antfarm
+  - su - openclaw -c "cd /opt/openclaw && git clone https://github.com/snarktank/antfarm.git app/antfarm"
+  - su - openclaw -c "cd /opt/openclaw/app/antfarm && npm install && npm run build && npm link"
+
+  # Run openclaw onboard (native setup — creates config, .env, systemd service)
+  - |
+    su - openclaw -c "cd /opt/openclaw && \
       openclaw onboard --non-interactive \
         --accept-risk \
         --anthropic-api-key '${ANTHROPIC_KEY}' \
@@ -148,20 +107,34 @@ runcmd:
         --install-daemon \
         --workspace /opt/openclaw/workspace"
 
+  # Write env tokens that onboard doesn't handle
+  - |
+    cat >> /opt/openclaw/.openclaw/.env <<ENVEOF
+    OPENCLAW_DISABLE_BONJOUR=1
+    ${SLACK_APP_TOKEN:+SLACK_APP_TOKEN=${SLACK_APP_TOKEN}}
+    ${SLACK_BOT_TOKEN:+SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}}
+    ${GITHUB_TOKEN:+GITHUB_TOKEN=${GITHUB_TOKEN}}
+    ${OPENAI_API_KEY:+OPENAI_API_KEY=${OPENAI_API_KEY}}
+    ${AWS_ACCESS_KEY_ID:+AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}}
+    ${AWS_SECRET_ACCESS_KEY:+AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}}
+    ENVEOF
+    chown openclaw:openclaw /opt/openclaw/.openclaw/.env
+    chmod 600 /opt/openclaw/.openclaw/.env
+
   # Configure Slack (open policy — respond in any channel/DM)
   - |
-    su - openclaw -c "cd /opt/openclaw/app && \
+    su - openclaw -c "cd /opt/openclaw && \
       openclaw config set channels.slack.groupPolicy open && \
       openclaw config set channels.slack.dm.policy open && \
       openclaw config set channels.slack.dm.allowFrom '[\"*\"]' && \
       openclaw config set messages.ackReactionScope all"
 
-  # Start service
+  # Start/restart service (onboard --install-daemon may have created it)
   - systemctl daemon-reload
-  - systemctl enable openclaw
-  - systemctl start openclaw
+  - systemctl enable openclaw || true
+  - systemctl restart openclaw || systemctl start openclaw
 
-  # Wait for service to be ready before adding cron jobs
+  # Wait for service to be ready
   - |
     echo "Waiting for OpenClaw service to start..."
     for i in \$(seq 1 30); do
@@ -172,9 +145,8 @@ runcmd:
       sleep 2
     done
 
-  # Install compound-engineering skill via ClawHub
-  - npm install -g clawhub || true
-  - su - openclaw -c "cd /opt/openclaw/app && clawhub install compound-engineering || echo 'ClawHub install skipped (not yet available)'"
+  # Install Antfarm into OpenClaw
+  - su - openclaw -c "cd /opt/openclaw && antfarm install || true"
 
   # Compound Review — 22:30 nightly (extract learnings, update CLAUDE.md)
   - |
@@ -184,7 +156,7 @@ runcmd:
         --cron '30 22 * * *' \
         --message 'Load the compound-engineering skill. Review all threads from the last 24 hours. For any thread where we did not compound learnings, do so now — extract key learnings and update the relevant CLAUDE.md files. Commit and push to main.' \
         --announce \
-        --timeout-seconds 600"
+        --timeout-seconds 600" || echo "cron add skipped"
 
   # Auto-Compound — 23:00 nightly (fetch reports, implement, create draft PRs)
   - |
@@ -194,7 +166,7 @@ runcmd:
         --cron '0 23 * * *' \
         --message 'Pull latest from main. Check workspace/compound/reports/ for prioritized work items. If found, pick the top priority, create a feature branch, generate a PRD, implement it, and create a draft PR. If no reports, check GitHub issues labeled auto-compound.' \
         --announce \
-        --timeout-seconds 1800"
+        --timeout-seconds 1800" || echo "cron add skipped"
 
   # Success marker
   - echo "Deployment completed at \$(date)" > /var/log/openclaw-deploy.log
