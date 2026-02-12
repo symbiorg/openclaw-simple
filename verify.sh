@@ -120,6 +120,23 @@ else
   log "GitHub not configured (optional - for code reviews/PRs)"
 fi
 
+# Warn if credentials are found in shell profiles
+echo ""
+log "Checking for credentials in shell profiles..."
+SHELL_PROFILES=("$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.zshrc" "$HOME/.zprofile" "$HOME/.profile")
+CRED_PATTERNS="HETZNER_TOKEN|TAILSCALE_KEY|ANTHROPIC_KEY|SLACK_APP_TOKEN|SLACK_BOT_TOKEN|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|GITHUB_TOKEN|OPENAI_API_KEY"
+FOUND_IN_PROFILES=0
+for profile in "${SHELL_PROFILES[@]}"; do
+  if [[ -f "$profile" ]] && grep -qE "^\s*export\s+($CRED_PATTERNS)=" "$profile" 2>/dev/null; then
+    log "WARNING: Credentials found in $profile — consider removing them"
+    log "         Use 'source secrets.env' instead of exporting in shell profiles"
+    FOUND_IN_PROFILES=1
+  fi
+done
+if [[ $FOUND_IN_PROFILES -eq 0 ]]; then
+  success "No credentials found in shell profiles"
+fi
+
 # Validate Hetzner API access
 echo ""
 log "Testing Hetzner API..."

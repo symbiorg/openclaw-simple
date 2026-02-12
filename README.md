@@ -14,72 +14,25 @@ Deploy a complete AI agent platform with multi-agent workflows to Hetzner in one
 
 ## Quick Start
 
-### 1. Set Required Credentials
+### 1. Set Up Credentials
+
+Copy the template and fill in your values:
 
 ```bash
-export HETZNER_TOKEN="your-hetzner-api-token"
-export TAILSCALE_KEY="tskey-auth-your-tailscale-key"
-export ANTHROPIC_KEY="sk-ant-your-anthropic-key"
+cp EXAMPLE.env secrets.env   # secrets.env is gitignored
+vim secrets.env               # fill in your credentials
 ```
 
-### 2. (Optional) Enable Slack
+`secrets.env` keeps credentials out of your shell profile and history. See `EXAMPLE.env` for all available options (Slack, AWS, GitHub, OpenAI).
+
+### 2. Verify and Deploy
 
 ```bash
-export SLACK_APP_TOKEN="xapp-your-app-token"
-export SLACK_BOT_TOKEN="xoxb-your-bot-token"
+source secrets.env && ./verify.sh          # Validate credentials
+source secrets.env && ./deploy.sh my-agent # Deploy to Hetzner
 ```
 
-**To get Slack tokens:**
-1. Create app at https://api.slack.com/apps
-2. Enable Socket Mode → Generate App-Level Token (xapp-)
-3. Add bot scopes: `app_mentions:read`, `channels:history`, `channels:read`, `chat:write`, `users:read`
-4. Install to workspace → Copy Bot User OAuth Token (xoxb-)
-
-### 3. (Optional) Enable AWS CLI
-
-```bash
-export AWS_ACCESS_KEY_ID="AKIA..."
-export AWS_SECRET_ACCESS_KEY="..."
-export AWS_DEFAULT_REGION="us-east-1"  # Optional, defaults to us-east-1
-```
-
-**Use cases:**
-- Check CloudWatch logs during debugging
-- Access S3 buckets from workflows
-- Interact with AWS services
-
-**To get AWS credentials:**
-1. Go to AWS Console → IAM → Users
-2. Create user or select existing user
-3. Security credentials → Create access key
-4. Choose "CLI" use case
-5. Copy Access Key ID and Secret Access Key
-
-### 4. (Optional) Enable GitHub CLI
-
-```bash
-export GITHUB_TOKEN="ghp_..."  # or github_pat_...
-```
-
-**Use cases:**
-- Review pull requests from workflows
-- Create branches and commit code
-- Open PRs automatically
-
-**To get GitHub token:**
-1. Go to https://github.com/settings/tokens
-2. Generate new token (classic or fine-grained)
-3. Select scopes: `repo`, `workflow`, `write:packages` (as needed)
-4. Copy the token (starts with `ghp_` or `github_pat_`)
-
-### 5. Verify and Deploy
-
-```bash
-./verify.sh          # Validate credentials
-./deploy.sh my-agent # Deploy to Hetzner
-```
-
-### 4. Access Your Agent
+### 3. Access Your Agent
 
 **Via Tailscale SSH:**
 ```bash
@@ -331,46 +284,30 @@ Total deployment time: ~4-6 minutes
 
 ### CLI-Only (No Slack)
 
-```bash
-# Only set required credentials
-export HETZNER_TOKEN="..."
-export TAILSCALE_KEY="..."
-export ANTHROPIC_KEY="..."
+Set only the required credentials in `secrets.env`, then:
 
-./deploy.sh cli-agent
+```bash
+source secrets.env && ./deploy.sh cli-agent
 ```
 
 Access via SSH and use `antfarm` commands directly.
 
 ### With Slack
 
-```bash
-# Set all credentials including Slack
-export HETZNER_TOKEN="..."
-export TAILSCALE_KEY="..."
-export ANTHROPIC_KEY="..."
-export SLACK_APP_TOKEN="xapp-..."
-export SLACK_BOT_TOKEN="xoxb-..."
+Add `SLACK_APP_TOKEN` and `SLACK_BOT_TOKEN` to `secrets.env`, then:
 
-./deploy.sh slack-agent
+```bash
+source secrets.env && ./deploy.sh slack-agent
 ```
 
 Access via Slack in #workbase and #dashboards channels.
 
 ### Full Stack with All Tools
 
-```bash
-# Set all credentials
-export HETZNER_TOKEN="..."
-export TAILSCALE_KEY="..."
-export ANTHROPIC_KEY="..."
-export SLACK_APP_TOKEN="xapp-..."
-export SLACK_BOT_TOKEN="xoxb-..."
-export AWS_ACCESS_KEY_ID="AKIA..."
-export AWS_SECRET_ACCESS_KEY="..."
-export GITHUB_TOKEN="ghp_..."
+Uncomment all optional credentials in `secrets.env`, then:
 
-./deploy.sh full-stack-agent
+```bash
+source secrets.env && ./deploy.sh full-stack-agent
 ```
 
 Access via Slack, and agents can use AWS and GitHub CLIs in workflows.

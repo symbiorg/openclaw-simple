@@ -473,8 +473,32 @@ runcmd:
   - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.thread.inheritParent true" || true
   - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.channels.workspace.requireMention false" || true
   - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.channels.workbase.requireMention false" || true
-  - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.channels.workbase.systemPrompt 'When replying in a thread, always continue in that same thread. Never break out to the main channel.'" || true
+  - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.channels.workbase.systemPrompt 'You are Scout, the #workbase research-first responder. When a mission or work item is posted, reply in-thread with structured research. Format responses with: **Findings** — what you discovered with sources and evidence; **Blockers** — anything preventing progress, flagged clearly; **Next steps** — concrete actions to advance the mission; **Related work** — links to related threads, PRs, issues, or past missions when relevant. Always reply in the thread where the mission was posted. Never break out to the main channel. As work progresses, post updates in the same thread to maintain the mission lifecycle. Keep responses concise and actionable. When multiple missions share context, cross-reference them to help the team see connections.'" || true
   - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.channels.workspace.systemPrompt 'When replying in a thread, always continue in that same thread. Never break out to the main channel.'" || true
+
+  # Enable block streaming for progressive Slack responses
+  - su - openclaw -c "cd /opt/openclaw && openclaw config set agents.defaults.blockStreamingDefault on" || true
+  - su - openclaw -c "cd /opt/openclaw && openclaw config set agents.defaults.blockStreamingBreak text_end" || true
+  - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.blockStreaming true" || true
+
+  # Model routing: Sonnet default, Opus for high-stakes analysis, Haiku fallback
+  - su - openclaw -c "cd /opt/openclaw && openclaw config set agents.defaults.model.primary anthropic/claude-sonnet-4-5" || true
+  - su - openclaw -c "cd /opt/openclaw && openclaw models fallbacks add anthropic/claude-haiku-3" || true
+  - |
+    for agent in feature-dev/planner bug-fix/investigator security-audit/scanner security-audit/prioritizer; do
+      idx=\$(su - openclaw -c "cd /opt/openclaw && openclaw config get agents.list" 2>/dev/null | python3 -c "import sys,json; data=json.load(sys.stdin); print(next(i for i,a in enumerate(data) if a['id']=='$agent'))" 2>/dev/null) || continue
+      su - openclaw -c "cd /opt/openclaw && openclaw config set agents.list[\$idx].model.primary anthropic/claude-opus-4-6" || true
+    done
+
+  # Optional: Codex for coding agents (activates when OPENAI_API_KEY is set)
+  - |
+    if [[ -n "${OPENAI_API_KEY}" ]]; then
+      su - openclaw -c "cd /opt/openclaw && openclaw models fallbacks add openai/gpt-5.3-codex" || true
+      for agent in feature-dev/developer feature-dev/setup bug-fix/fixer bug-fix/setup security-audit/fixer security-audit/setup; do
+        idx=\$(su - openclaw -c "cd /opt/openclaw && openclaw config get agents.list" 2>/dev/null | python3 -c "import sys,json; data=json.load(sys.stdin); print(next(i for i,a in enumerate(data) if a['id']=='$agent'))" 2>/dev/null) || continue
+        su - openclaw -c "cd /opt/openclaw && openclaw config set agents.list[\$idx].model.primary openai/gpt-5.3-codex" || true
+      done
+    fi
 
   # Start/restart service (onboard --install-daemon may have created it)
   - systemctl daemon-reload
