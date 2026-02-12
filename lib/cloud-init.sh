@@ -163,6 +163,7 @@ runcmd:
   - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.dm.allowFrom '[\"*\"]'" || true
   - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.dm.policy open" || true
   - su - openclaw -c "cd /opt/openclaw && openclaw config set messages.ackReactionScope all" || true
+  - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.replyToMode all" || true
 
   # Start/restart service (onboard --install-daemon may have created it)
   - systemctl daemon-reload
