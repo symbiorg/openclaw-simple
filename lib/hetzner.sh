@@ -17,7 +17,7 @@ hetzner_create_server() {
     -H "Content-Type: application/json" \
     -d "{
       \"name\": \"$name\",
-      \"server_type\": \"cx23\",
+      \"server_type\": \"cx33\",
       \"location\": \"nbg1\",
       \"image\": \"ubuntu-24.04\",
       \"ssh_keys\": $ssh_keys,

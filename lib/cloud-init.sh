@@ -360,8 +360,8 @@ write_files:
 
       NoNewPrivileges=true
       PrivateTmp=true
-      MemoryMax=4G
-      CPUQuota=200%
+      MemoryMax=7G
+      CPUQuota=300%
       ReadOnlyPaths=/opt/openclaw/safety
 
       [Install]
@@ -463,9 +463,8 @@ runcmd:
   # Configure Slack (enable + mention-gated with thread auto-follow)
   - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.enabled true" || true
   - su - openclaw -c "cd /opt/openclaw && openclaw config set plugins.entries.slack.enabled true" || true
-  - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.groupPolicy open" || true
-  - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.dm.allowFrom '[\"*\"]'" || true
-  - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.dm.policy open" || true
+  - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.groupPolicy allowlist" || true
+  - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.dm.policy pairing" || true
   - su - openclaw -c "cd /opt/openclaw && openclaw config set messages.ackReactionScope all" || true
   - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.replyToMode all" || true
   - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.replyToModeByChatType --json '{\"channel\":\"all\",\"direct\":\"all\",\"group\":\"all\"}'" || true
@@ -481,8 +480,8 @@ runcmd:
   - su - openclaw -c "cd /opt/openclaw && openclaw config set agents.defaults.blockStreamingBreak text_end" || true
   - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.blockStreaming true" || true
 
-  # Model routing: Sonnet default, Opus for high-stakes analysis, Haiku fallback
-  - su - openclaw -c "cd /opt/openclaw && openclaw config set agents.defaults.model.primary anthropic/claude-sonnet-4-5" || true
+  # Model routing: Opus default, Haiku fallback
+  - su - openclaw -c "cd /opt/openclaw && openclaw config set agents.defaults.model.primary anthropic/claude-opus-4-6" || true
   - su - openclaw -c "cd /opt/openclaw && openclaw models fallbacks add anthropic/claude-haiku-3" || true
   - |
     for agent in feature-dev/planner bug-fix/investigator security-audit/scanner security-audit/prioritizer; do
@@ -499,6 +498,9 @@ runcmd:
         su - openclaw -c "cd /opt/openclaw && openclaw config set agents.list[\$idx].model.primary openai/gpt-5.3-codex" || true
       done
     fi
+
+  # Security hardening: elevated disabled
+  - su - openclaw -c "cd /opt/openclaw && openclaw config set tools.elevated.enabled false" || true
 
   # Start/restart service (onboard --install-daemon may have created it)
   - systemctl daemon-reload
