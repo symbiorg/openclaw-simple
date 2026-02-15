@@ -1,6 +1,7 @@
 [submodule "context/dcf-vault"]
 	path = context/dcf-vault
-	url = https://github.com/symbiorgco/dcf-setup.git
+	url = https://github.com/symbiorgco/agent-workspaces.git
+	branch = master
 [submodule "context/antfarm"]
 	path = context/antfarm
 	url = https://github.com/snarktank/antfarm.git

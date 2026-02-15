@@ -141,7 +141,7 @@ write_files:
       - Those are human-owned and sync from GitHub
 
       ### Sync
-      - Repo: \`symbiorgco/dcf-setup\` (GitHub, cloned with token)
+      - Repo: \`symbiorgco/agent-workspaces\` (GitHub, cloned with token)
       - Pull: automatic | Push: \`cd /opt/openclaw/knowledge/dcf-vault && git add -A && git commit -m "Agent: <desc>" && git push\`
 
       ## GitHub CLI (\`gh\`)
@@ -423,10 +423,15 @@ runcmd:
       echo "GitHub CLI installed and authenticated" >> /var/log/openclaw-deploy.log
     fi
 
-  # Clone dcf-vault context (private repo)
+  # Clone agent-workspaces + symlink dcf-vault (private repo)
   - |
     if [ -n "${GITHUB_TOKEN}" ]; then
-      su - openclaw -c "cd /opt/openclaw/knowledge && git clone https://${GITHUB_TOKEN}@github.com/symbiorgco/dcf-setup.git dcf-vault"
+      echo "https://${GITHUB_TOKEN}@github.com" > /opt/openclaw/.git-credentials
+      chown openclaw:openclaw /opt/openclaw/.git-credentials
+      chmod 600 /opt/openclaw/.git-credentials
+      su - openclaw -c "git config --global credential.helper 'store --file=/opt/openclaw/.git-credentials'"
+      su - openclaw -c "cd /opt/openclaw/knowledge && git clone https://github.com/symbiorgco/agent-workspaces.git agent-workspaces"
+      su - openclaw -c "ln -s /opt/openclaw/knowledge/agent-workspaces/shared /opt/openclaw/knowledge/dcf-vault"
     fi
 
   # Install Antfarm
