@@ -372,7 +372,10 @@ runcmd:
 
   # Install Tailscale
   - curl -fsSL https://tailscale.com/install.sh | sh
-  - tailscale up --authkey=${TAILSCALE_KEY} --ssh --hostname=${INSTANCE_NAME}
+  - |
+    echo '${TAILSCALE_KEY}' > /tmp/.ts-authkey && chmod 600 /tmp/.ts-authkey
+    tailscale up --authkey=\$(cat /tmp/.ts-authkey) --ssh --hostname=${INSTANCE_NAME}
+    rm -f /tmp/.ts-authkey
 
   # Firewall: Tailscale + SSH (SSH needed for deploy script health checks)
   - ufw default deny incoming
@@ -412,7 +415,9 @@ runcmd:
       echo "deb [arch=\$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
       apt-get update
       apt-get install -y gh
-      su - openclaw -c "echo '${GITHUB_TOKEN}' | gh auth login --with-token"
+      echo '${GITHUB_TOKEN}' > /tmp/.gh-token && chmod 600 /tmp/.gh-token
+      su - openclaw -c "cat /tmp/.gh-token | gh auth login --with-token"
+      rm -f /tmp/.gh-token
       su - openclaw -c "git config --global user.name 'bit-ship-it'"
       su - openclaw -c "git config --global user.email 'bit-ship-it@users.noreply.github.com'"
       echo "GitHub CLI installed and authenticated" >> /var/log/openclaw-deploy.log
@@ -429,20 +434,7 @@ runcmd:
   - su - openclaw -c "cd /opt/openclaw/app/antfarm && npm install && npm run build"
   - cd /opt/openclaw/app/antfarm && npm link
 
-  # Run openclaw onboard (native setup — creates config, .env, systemd service)
-  - |
-    su - openclaw -c "cd /opt/openclaw && \
-      openclaw onboard --non-interactive \
-        --accept-risk \
-        --anthropic-api-key '${ANTHROPIC_KEY}' \
-        ${OPENAI_API_KEY:+--openai-api-key '${OPENAI_API_KEY}'} \
-        ${SLACK_APP_TOKEN:+--skip-channels} \
-        --gateway-bind loopback \
-        --gateway-port 18789 \
-        --install-daemon \
-        --workspace /opt/openclaw/workspace"
-
-  # Write env tokens that onboard doesn't handle
+  # Write env file first (so onboard can source it instead of taking keys as args)
   - |
     mkdir -p /opt/openclaw/.openclaw
     cat > /opt/openclaw/.openclaw/.env <<ENVEOF
@@ -459,6 +451,20 @@ runcmd:
     ENVEOF
     chown openclaw:openclaw /opt/openclaw/.openclaw/.env
     chmod 600 /opt/openclaw/.openclaw/.env
+
+  # Run openclaw onboard (sources keys from env file, not command args)
+  - |
+    su - openclaw -c "cd /opt/openclaw && \
+      source /opt/openclaw/.openclaw/.env && \
+      openclaw onboard --non-interactive \
+        --accept-risk \
+        --anthropic-api-key \"\\\$ANTHROPIC_API_KEY\" \
+        \\\${OPENAI_API_KEY:+--openai-api-key \"\\\$OPENAI_API_KEY\"} \
+        ${SLACK_APP_TOKEN:+--skip-channels} \
+        --gateway-bind loopback \
+        --gateway-port 18789 \
+        --install-daemon \
+        --workspace /opt/openclaw/workspace"
 
   # Configure Slack (enable + mention-gated with thread auto-follow)
   - su - openclaw -c "cd /opt/openclaw && openclaw config set channels.slack.enabled true" || true
